@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive World Map: Clean, Dirty, and Salty Water</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        header, footer {
+            background-color: #0288d1;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+
+        #map {
+            width: 100%;
+            height: 600px;
+            margin: 20px 0;
+            border: 2px solid #0288d1;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .legend {
+            background: white;
+            line-height: 1.5em;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 1000;
+        }
+
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+            border-radius: 50%;
+        }
+
+        #infoPanel {
+            position: absolute;
+            bottom: 100px;
+            left: 30px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+
+        #search {
+            width: 300px;
+            padding: 10px;
+            margin: 20px 0;
+            border: 1px solid #0288d1;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            background-color: #fff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        #instructions {
+            padding: 20px;
+            background-color: #fff;
+            margin: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Interactive World Map: Clean, Dirty, and Salty Water</h1>
+        <input type="text" id="search" placeholder="Search for a country..." onkeyup="searchCountry()">
+    </header>
+
+    <div id="loading">Loading...</div>
+    <div id="map"></div>
+    <div id="infoPanel"></div>
+    <div id="instructions">
+        <h3>How to Use This Map</h3>
+        <p>Click on a marker to view details about the water quality. Use the search bar to find specific countries.</p>
+    </div>
+
+    <div class="legend">
+        <h4>Water Quality Legend</h4>
+        <i style="background: #4CAF50;"></i> Clean Water<br>
+        <i style="background: #F44336;"></i> Dirty Water<br>
+     
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Water Quality Initiative. All rights reserved.</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map', {
+            center: [20, 0],
+            zoom: 2,
+            maxZoom: 5,
+            minZoom: 2,
+            maxBounds: [[-90, -180], [90, 180]],
+            zoomControl: true
+        });
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            minZoom: 2
+        }).addTo(map);
+
+        // Show loading indicator
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // Hide loading indicator
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // Function to add a marker with specific water type
+        function addMarker(lat, lon, info, type) {
+            var color;
+            var fullInfo = info; // Initialize with the basic info
+
+            // Append additional info for dirty water markers
+            if (type === 'dirty') {
+                fullInfo += "<br><strong>Impact:</strong> Using dirty water can lead to serious health issues such as cholera, dysentery, and other waterborne diseases.";
+            }
+
+           
+           
+
+            if (type === 'clean') color = '#4CAF50';   // Green for clean water
+            else if (type === 'dirty') color = '#F44336'; // Red for dirty water
+            else color = '#FFA500';                      // Orange for salty water
+
+            var marker = L.circleMarker([lat, lon], {
+                radius: 6,
+                fillColor: color,
+                color: color,
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+           
+            marker.bindPopup(fullInfo, { closeButton: true }); // Bind a popup to the marker
+        }
+
+        // Define markers for various countries
+        var markers = [
+            // Clean Water Countries
+              {lat: 39.210975, lon: -107.345185, info: 'Clean Water - USA', type: 'clean'},
+            {lat: 43.149094, lon: 10.898438, info: 'Clean Water - Italy', type: 'clean'},
+            {lat: 0.994213, lon: 103.798828, info: 'Clean Water - Singapore', type: 'clean'},
+            {lat: 57.733485, lon: -114.082031, info: 'Clean Water - Canada', type: 'clean'},
+            {lat: 50.882243, lon: 9.667969, info: 'Clean Water - Germany', type: 'clean'},
+            {lat: 46.8182, lon: 8.2275, info: 'Clean Water - Switzerland', type: 'clean'},
+            {lat: 60.267066, lon: 8.261719, info: 'Clean Water - Norway', type: 'clean'},
+            {lat: 63.099730, lon: 15.996094, info: 'Clean Water - Sweden', type: 'clean'},
+            {lat: 54.127041, lon: -1.845703, info: 'Clean Water - United Kingdom', type: 'clean'},
+            {lat: 39.0742, lon: 21.8243, info: 'Clean Water - Greece', type: 'clean'},
+            {lat: 61.9241, lon: 25.7482, info: 'Clean Water - Finland', type: 'clean'},
+            {lat: 64.038554, lon: -18.632813, info: 'Clean Water - Iceland', type: 'clean'},
+            {lat: 47.197178, lon: 15.468750, info: 'Clean Water - Austria', type: 'clean'},
+            {lat: 42.43544, lon: 19.26389, info: 'Clean Water - Montenegro', type: 'clean'},
+            {lat: 38.72633, lon:  -9.14952, info: 'Clean Water - Portugal', type: 'clean'},
+            {lat: 40.41955, lon:  -3.69197, info: 'Clean Water - Spain', type: 'clean'},
+            {lat: 35.89353, lon: 14.5118, info: 'Clean Water - Malta', type: 'clean'},
+            {lat: 49.6096, lon: 6.12966, info: 'Clean Water - Luxembourg', type: 'clean'},
+            {lat: 53.34807, lon: -6.24828, info: 'Clean Water - Ireland', type: 'clean'},
+            {lat: 55.67567, lon: 12.56755, info: 'Clean Water - Denmark', type: 'clean'},
+            {lat: -35.3065, lon: 149.1266, info: 'Clean Water - Australia', type: 'clean'},
+            {lat: 37.55886, lon:  126.99989, info: 'Clean Water - South Korea', type: 'clean'},
+            {lat: 50.84439, lon:  4.35608, info: 'Clean Water - Belgium', type: 'clean'},
+            {lat: 46.05062, lon: 14.50282, info: 'Clean Water - Slovenia', type: 'clean'},
+            {lat: 52.36993, lon: 4.90787, info: 'Clean Water - Netherlands', type: 'clean'},
+            {lat: 48.14924, lon: 17.10699, info: 'Clean Water - Slovakia', type: 'clean'},
+            {lat: 4.8919, lon: 114.94043, info: 'Clean Water - Brunei', type: 'clean'},
+            {lat: 35.17197, lon: 33.36489, info: 'Clean Water - Cyprus', type: 'clean'},
+            {lat: 48.85717, lon:  2.3414, info: 'Clean Water - France', type: 'clean'},
+            {lat: -41.28949, lon: 174.77686, info: 'Clean Water - New Zealand', type: 'clean'},
+            {lat: -33.43723, lon: -70.65003, info: 'Clean Water - Chile', type: 'clean'},
+            {lat: -33.43723, lon: -70.65003, info: 'Clean Water - Serbia', type: 'clean'},
+            {lat: 31.78003, lon: 35.21873, info: 'Clean Water - Israel', type: 'clean'},
+            {lat: 45.80724, lon: 15.96757, info: 'Clean Water - Croatia', type: 'clean'},
+            {lat: 4.8919, lon: 114.94043, info: 'Clean Water - Brunei', type: 'clean'},
+            {lat: 35.17197, lon: 33.36489, info: 'Clean Water - Cyprus', type: 'clean'},
+            {lat: 48.85717, lon:  2.3414, info: 'Clean Water - France', type: 'clean'},
+            {lat: -41.28949, lon: 174.77686, info: 'Clean Water - New Zealand', type: 'clean'},
+            {lat: -33.43723, lon: -70.65003, info: 'Clean Water - Chile', type: 'clean'},
+            {lat: -33.43723, lon: -70.65003, info: 'Clean Water - Serbia', type: 'clean'},
+            {lat: 31.78003, lon: 35.21873, info: 'Clean Water - Israel', type: 'clean'},
+            {lat: 45.80724, lon: 15.96757, info: 'Clean Water - Croatia', type: 'clean'},
+            {lat: 4.8919, lon: 114.94043, info: 'Clean Water - Brunei', type: 'clean'},
+            {lat: 35.17197, lon: 33.36489, info: 'Clean Water - Cyprus', type: 'clean'},
+            {lat: 43.85945, lon:  18.43583, info: 'Clean Water - Bosnia and Herzegovina', type: 'clean'},
+            {lat: 52.2356, lon: 21.01037, info: 'Clean Water - Poland', type: 'clean'},
+            {lat: 50.45056, lon: 30.52428, info: 'Clean Water - Ukraine', type: 'clean'},
+            {lat: 40.17795, lon: 44.51402, info: 'Clean Water - Armenia', type: 'clean'},
+            {lat:  64.377941, lon: 96.190796, info: 'Clean Water - Russia', type: 'clean'},
+            {lat: 35.6895, lon: 139.69172, info: 'Clean Water - Japan', type: 'clean'},
+            {lat: 36.531709, lon: 102.167358, info: 'Clean Water - China', type: 'clean'},
+            {lat: 51.12771, lon: 71.4283, info: 'Clean Water - Kazakhstan', type: 'clean'},
+            {lat: 53.90374, lon: 27.56545, info: 'Clean Water - Belarus', type: 'clean'},
+            {lat: 56.94596, lon: 24.11481, info: 'Clean Water - Latvia', type: 'clean'},
+            {lat: 41.32569, lon: 69.24134, info: 'Clean Water - Uzbekistan', type: 'clean'},
+            {lat: 54.69062, lon: 25.2698, info: 'Clean Water - Lithuania', type: 'clean'},
+            {lat: 42.69718, lon:  23.32433, info: 'Clean Water - Bulgaria', type: 'clean'},
+            {lat: 50.07914, lon: 14.43299, info: 'Clean Water - Czech Republic', type: 'clean'},
+            {lat: 29.37332, lon: 47.97162, info: 'Clean Water - Kuwait', type: 'clean'},
+            {lat: 47.49972, lon: 19.05508, info: 'Clean Water - Hungary', type: 'clean'},
+            {lat:  25.29424, lon: 51.51966, info: 'Clean Water - Qatar', type: 'clean'},
+            {lat: -34.87418, lon: -56.16294, info: 'Clean Water - Uruguay', type: 'clean'},
+            {lat: 44.43429, lon: 26.10298, info: 'Clean Water - Romania', type: 'clean'},
+            {lat: 25.03737, lon: 121.56355, info: 'Clean Water - Taiwan', type: 'clean'},
+            {lat:  41.32232, lon: 19.82517, info: 'Clean Water - Albania', type: 'clean'},
+            {lat: 41.31378, lon:  -81.50504, info: 'Clean Water - North Macedonia', type: 'clean'},
+
+
+            // Dirty Water Countries
+              {lat: 32.0, lon: 53.6, info: 'dirty Water - Iran', type: 'dirty'},
+  {lat: -38.0, lon: -63.0, info: 'dirty Water - Argentina', type: 'dirty'},
+  {lat: 23.8, lon: 54.3, info: 'dirty Water - United Arab Emirates', type: 'dirty'},
+  {lat: 26.0, lon: 50.5, info: 'dirty Water - Bahrain', type: 'dirty'},
+  {lat: 10.0, lon: -84.0, info: 'dirty Water - Costa Rica', type: 'dirty'},
+  {lat: 47.0, lon: 29.0, info: 'dirty Water - Moldova', type: 'dirty'},
+  {lat: 46.0, lon: 105.0, info: 'dirty Water - Mongolia', type: 'dirty'},
+  {lat: -1.8, lon: -78.2, info: 'dirty Water - Ecuador', type: 'dirty'},
+  {lat: 31.0, lon: 36.0, info: 'dirty Water - Jordan', type: 'dirty'},
+  {lat: 21.0, lon: 57.5, info: 'dirty Water - Oman', type: 'dirty'},
+  {lat: 41.0, lon: 75.0, info: 'dirty Water - Kyrgyzstan', type: 'dirty'},
+  {lat: 28.0, lon: 3.0, info: 'dirty Water - Algeria', type: 'dirty'},
+  {lat: 39.0, lon: 35.0, info: 'dirty Water - Turkey', type: 'dirty'},
+  {lat: -20.2, lon: 57.5, info: 'dirty Water - Mauritius', type: 'dirty'},
+  {lat: 39.0, lon: 59.0, info: 'dirty Water - Turkmenistan', type: 'dirty'},
+  {lat: 33.9, lon: 9.5, info: 'dirty Water - Tunisia', type: 'dirty'},
+  {lat: -10.0, lon: -55.0, info: 'dirty Water - Brazil', type: 'dirty'},
+  {lat: 24.0, lon: 45.0, info: 'dirty Water - Saudi Arabia', type: 'dirty'},
+  {lat: 25.0, lon: -77.5, info: 'dirty Water - Bahamas', type: 'dirty'},
+  {lat: 13.1, lon: -59.5, info: 'dirty Water - Barbados', type: 'dirty'},
+  {lat: 10.0, lon: -61.2, info: 'dirty Water - Trinidad and Tobago', type: 'dirty'},
+  {lat: 4.0, lon: -72.0, info: 'dirty Water - Colombia', type: 'dirty'},
+  {lat: 21.5, lon: -80.0, info: 'dirty Water - Cuba', type: 'dirty'},
+  {lat: 23.6, lon: -102.5, info: 'dirty Water - Mexico', type: 'dirty'},
+  {lat: -23.0, lon: -58.0, info: 'dirty Water - Paraguay', type: 'dirty'},
+  {lat: 17.1, lon: -61.8, info: 'dirty Water - Antigua and Barbuda', type: 'dirty'},
+  {lat: 33.0, lon: 44.0, info: 'dirty Water - Iraq', type: 'dirty'},
+  {lat: -10.0, lon: -75.0, info: 'dirty Water - Peru', type: 'dirty'},
+  {lat: 33.9, lon: 35.9, info: 'dirty Water - Lebanon', type: 'dirty'},
+  {lat: 12.1, lon: -61.7, info: 'dirty Water - Grenada', type: 'dirty'},
+  {lat: 26.0, lon: 30.0, info: 'dirty Water - Egypt', type: 'dirty'},
+  {lat: 14.0, lon: 108.0, info: 'dirty Water - Vietnam', type: 'dirty'},
+  {lat: 18.0, lon: -77.5, info: 'dirty Water - Jamaica', type: 'dirty'},
+  {lat: 13.9, lon: -61.0, info: 'dirty Water - Saint Lucia', type: 'dirty'},
+  {lat: 7.0, lon: 81.0, info: 'dirty Water - Sri Lanka', type: 'dirty'},
+  {lat: -13.5, lon: -172.0, info: 'dirty Water - Samoa', type: 'dirty'},
+  {lat: 4.0, lon: 106.0, info: 'dirty Water - Malaysia', type: 'dirty'},
+  {lat: 13.3, lon: -61.2, info: 'dirty Water - Saint Vincent and the Grenadines', type: 'dirty'},
+  {lat: -4.5, lon: 55.5, info: 'dirty Water - Seychelles', type: 'dirty'},
+  {lat: 13.8, lon: -88.9, info: 'dirty Water - El Salvador', type: 'dirty'},
+  {lat: 40.0, lon: 47.0, info: 'dirty Water - Azerbaijan', type: 'dirty'},
+  {lat: 15.3, lon: -61.4, info: 'dirty Water - Dominica', type: 'dirty'},
+  {lat: 17.2, lon: -88.3, info: 'dirty Water - Belize', type: 'dirty'},
+  {lat: -21.2, lon: -175.0, info: 'dirty Water - Tonga', type: 'dirty'},
+  {lat: 9.0, lon: -79.5, info: 'dirty Water - Panama', type: 'dirty'},
+  {lat: 32.0, lon: -5.0, info: 'dirty Water - Morocco', type: 'dirty'},
+  {lat: 13.0, lon: -85.0, info: 'dirty Water - Nicaragua', type: 'dirty'},
+  {lat: 6.0, lon: -66.0, info: 'dirty Water - Venezuela', type: 'dirty'},
+  {lat: -17.0, lon: -65.0, info: 'dirty Water - Bolivia', type: 'dirty'},
+  {lat: 3.2, lon: 73.2, info: 'dirty Water - Maldives', type: 'dirty'},
+  {lat: 15.0, lon: 100.0, info: 'dirty Water - Thailand', type: 'dirty'},
+  {lat: 19.0, lon: -70.0, info: 'dirty Water - Dominican Republic', type: 'dirty'},
+  {lat: 5.0, lon: -59.0, info: 'dirty Water - Guyana', type: 'dirty'},
+  {lat: 4.0, lon: -56.0, info: 'dirty Water - Suriname', type: 'dirty'},
+  {lat: 15.0, lon: 30.0, info: 'dirty Water - Sudan', type: 'dirty'},
+  {lat: 13.0, lon: 105.0, info: 'dirty Water - Cambodia', type: 'dirty'},
+  {lat: 12.0, lon: 122.0, info: 'dirty Water - Philippines', type: 'dirty'},
+  {lat: 27.5, lon: 90.5, info: 'dirty Water - Bhutan', type: 'dirty'},
+  {lat: 6.9, lon: 158.2, info: 'dirty Water - Micronesia', type: 'dirty'},
+  {lat: 13.0, lon: -83.0, info: 'dirty Water - Honduras', type: 'dirty'},
+  {lat: 1.5, lon: 6.5, info: 'dirty Water - Sao Tome and Principe', type: 'dirty'},
+  {lat: 16.0, lon: -24.0, info: 'dirty Water - Cape Verde', type: 'dirty'},
+  {lat: 7.0, lon: 171.0, info: 'dirty Water - Marshall Islands', type: 'dirty'},
+  {lat: 21.9, lon: 95.9, info: 'dirty Water - Myanmar', type: 'dirty'},
+  {lat: 1.0, lon: 11.5, info: 'dirty Water - Gabon', type: 'dirty'},
+  {lat: -17.0, lon: 178.0, info: 'dirty Water - Fiji', type: 'dirty'},
+  {lat: -9.0, lon: 160.0, info: 'dirty Water - Solomon Islands', type: 'dirty'},
+  {lat: 1.5, lon: 10.0, info: 'dirty Water - Equatorial Guinea', type: 'dirty'},
+  {lat: 28.0, lon: 85.0, info: 'dirty Water - Nepal', type: 'dirty'},
+  {lat: 9.0, lon: 125.0, info: 'dirty Water - Timor Leste', type: 'dirty'},
+  {lat: 38.0, lon: 71.0, info: 'dirty Water - Tajikistan', type: 'dirty'},
+  {lat: 19.0, lon: 102.0, info: 'dirty Water - Laos', type: 'dirty'},
+  {lat: -13.0, lon: 167.0, info: 'dirty Water - Vanuatu', type: 'dirty'},
+  {lat: 33.0, lon: 65.0, info: 'dirty Water - Afghanistan', type: 'dirty'},
+  {lat: 23.0, lon: 90.0, info: 'dirty Water - Bangladesh', type: 'dirty'},
+  {lat: -5.0, lon: 105.0, info: 'dirty Water - Indonesia', type: 'dirty'},
+  {lat: 14.0, lon: -91.0, info: 'dirty Water - Guatemala', type: 'dirty'},
+  {lat: 14.5, lon: -14.0, info: 'dirty Water - Senegal', type: 'dirty'},
+  {lat: 23.5, lon: 85.5, info: 'dirty Water - Pakistan', type: 'dirty'},
+  {lat: 6.0, lon: -0.5, info: 'dirty Water - Ghana', type: 'dirty'},
+  {lat: 20.0, lon: -12.0, info: 'dirty Water - Mauritania', type: 'dirty'},
+  {lat: -11.0, lon: 43.5, info: 'dirty Water - Comoros', type: 'dirty'},
+  {lat: 11.5, lon: 43.0, info: 'dirty Water - Djibouti', type: 'dirty'},
+  {lat: -4.0, lon: 15.0, info: 'dirty Water - DR Congo', type: 'dirty'},
+  {lat: 28.0, lon: 80.0, info: 'dirty Water - India', type: 'dirty'},
+  {lat: 13.0, lon: -15.0, info: 'dirty Water - Gambia', type: 'dirty'},
+  {lat: -25.0, lon: 30.0, info: 'dirty Water - South Africa', type: 'dirty'},
+  {lat: -2.0, lon: 15.0, info: 'dirty Water - Rwanda', type: 'dirty'},
+  {lat: -0.5, lon: 15.5, info: 'dirty Water - Republic of the Congo', type: 'dirty'},
+  {lat: 7.0, lon: -5.0, info: 'dirty Water - Ivory Coast', type: 'dirty'},
+  {lat: 9.0, lon: 31.5, info: 'dirty Water - Uganda', type: 'dirty'},
+  {lat: 3.5, lon: 12.0, info: 'dirty Water - Cameroon', type: 'dirty'},
+  {lat: -12.0, lon: 18.5, info: 'dirty Water - Angola', type: 'dirty'},
+  {lat: -16.0, lon: 27.0, info: 'dirty Water - Zambia', type: 'dirty'},
+  {lat: -1.0, lon: 37.0, info: 'dirty Water - Kenya', type: 'dirty'},
+  {lat: 1.0, lon: 157.0, info: 'dirty Water - Kiribati', type: 'dirty'},
+  {lat: -9.0, lon: 147.0, info: 'dirty Water - Papua New Guinea', type: 'dirty'},
+  {lat: -6.0, lon: 35.0, info: 'dirty Water - Tanzania', type: 'dirty'},
+  {lat: -18.0, lon: 35.0, info: 'dirty Water - Mozambique', type: 'dirty'},
+  {lat: -22.0, lon: 24.0, info: 'dirty Water - Botswana', type: 'dirty'},
+  {lat: 9.0, lon: 2.0, info: 'dirty Water - Benin', type: 'dirty'},
+  {lat: 10.0, lon: -9.0, info: 'dirty Water - Guinea', type: 'dirty'},
+  {lat: 12.0, lon: -15.0, info: 'dirty Water - Guinea Bissau', type: 'dirty'},
+  {lat: -22.0, lon: 17.0, info: 'dirty Water - Namibia', type: 'dirty'},
+  {lat: -20.0, lon: 29.0, info: 'dirty Water - Zimbabwe', type: 'dirty'},
+  {lat: 9.0, lon: 40.0, info: 'dirty Water - Ethiopia', type: 'dirty'},
+  {lat: 9.4, lon: -9.4, info: 'dirty Water - Liberia', type: 'dirty'},
+  {lat: 17.0, lon: -4.0, info: 'dirty Water - Mali', type: 'dirty'},
+  {lat: -26.5, lon: 31.5, info: 'dirty Water - Eswatini', type: 'dirty'},
+  {lat: 18.5, lon: -72.0, info: 'dirty Water - Haiti', type: 'dirty'},
+  {lat: 8.5, lon: -13.2, info: 'dirty Water - Sierra Leone', type: 'dirty'},
+  {lat: 8.0, lon: 1.2, info: 'dirty Water - Togo', type: 'dirty'},
+  {lat: 13.5, lon: 34.5, info: 'dirty Water - Malawi', type: 'dirty'},
+  {lat: -3.5, lon: 29.9, info: 'dirty Water - Burundi', type: 'dirty'},
+  {lat: 15.0, lon: 39.0, info: 'dirty Water - Eritrea', type: 'dirty'},
+  {lat: 12.0, lon: -1.5, info: 'dirty Water - Burkina Faso', type: 'dirty'},
+  {lat: 10.0, lon: 8.0, info: 'dirty Water - Nigeria', type: 'dirty'},
+  {lat: -19.0, lon: 47.0, info: 'dirty Water - Madagascar', type: 'dirty'},
+  {lat: 17.0, lon: 8.0, info: 'dirty Water - Niger', type: 'dirty'},
+  {lat: -29.5, lon: 27.5, info: 'dirty Water - Lesotho', type: 'dirty'},
+  {lat: 6.5, lon: 20.5, info: 'dirty Water - Central African Republic', type: 'dirty'},
+  {lat: 15.0, lon: 19.0, info: 'dirty Water - Chad', type: 'dirty'}
+        ];
+
+        // Add markers to the map
+        markers.forEach(marker => addMarker(marker.lat, marker.lon, marker.info, marker.type));
+
+        // Function to search for a country
+        function searchCountry() {
+            var input = document.getElementById('search').value.toLowerCase();
+            var filteredMarkers = markers.filter(function(marker) {
+                return marker.info.toLowerCase().includes(input);
+            });
+
+            // Remove all markers from the map
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.CircleMarker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Add only the filtered markers back to the map
+            filteredMarkers.forEach(function(marker) {
+                addMarker(marker.lat, marker.lon, marker.info, marker.type);
+            });
+        }
+
+        // Hide or show the info panel based on marker click
+        map.on('popupopen', function() {
+            document.getElementById('infoPanel').style.display = 'none';
+        });
+
+        // Example initialization with map and markers
+        hideLoading();
+    </script>
+</body>
+</html>
